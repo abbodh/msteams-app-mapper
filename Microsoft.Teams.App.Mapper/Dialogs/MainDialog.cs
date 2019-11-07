@@ -5,6 +5,7 @@ using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Microsoft.Teams.App.Mapper.Cards;
+using Microsoft.Teams.App.Mapper.Helper;
 using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
@@ -18,12 +19,13 @@ namespace Microsoft.Teams.App.Mapper.Dialogs
     {
         protected readonly ILogger Logger;
 
-        private static readonly MemoryStorage memoryStore = new MemoryStorage();
+        private readonly IProcessor processor;
 
-        public MainDialog(IConfiguration configuration, ILogger<MainDialog> logger)
+        public MainDialog(IConfiguration configuration, ILogger<MainDialog> logger, IProcessor proc)
             : base(nameof(MainDialog), configuration["ConnectionName"])
         {
             Logger = logger;
+            processor = proc;
 
             //TODO :: add auth later
             AddDialog(new OAuthPrompt(
@@ -77,12 +79,10 @@ namespace Microsoft.Teams.App.Mapper.Dialogs
                     break;
                 case "eventsubmit":
                     // save info for later notifications
-                    var events = new Dictionary<string, object>();
-                    {
-                        events.Add(((JObject)stepContext.Context.Activity.Value).GetValue("eventname").ToString(), stepContext.Context.Activity);
-                    };
-                    await memoryStore.WriteAsync(events, cancellationToken);
-                    await stepContext.Context.SendActivityAsync($"{((JObject)stepContext.Context.Activity.Value).GetValue("eventname").ToString()} is regisetered");
+                    if (await processor.WriteToStoreAsync(stepContext, cancellationToken))
+                        await stepContext.Context.SendActivityAsync($"{((JObject)stepContext.Context.Activity.Value).GetValue("eventname").ToString()} is regisetered");
+                    else
+                        await stepContext.Context.SendActivityAsync("something went wrong while subscribing for event");
                     break;
                 default:
                     await stepContext.Context.SendActivityAsync($"command not recognized. Type 'Help' to see supported commands.");

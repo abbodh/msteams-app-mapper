@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Builder;
@@ -19,6 +20,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Teams.App.Mapper.Bots;
 using Microsoft.Teams.App.Mapper.Dialogs;
+using Microsoft.Teams.App.Mapper.Helper;
 
 namespace Microsoft.Teams.App.Mapper
 {
@@ -58,6 +60,8 @@ namespace Microsoft.Teams.App.Mapper
 
             // Create the bot as a transient. In this case the ASP Controller is expecting an IBot.
             services.AddTransient<IBot, MapperBot>();
+
+            services.AddSingleton<IProcessor, Processor>();
 
         }
 

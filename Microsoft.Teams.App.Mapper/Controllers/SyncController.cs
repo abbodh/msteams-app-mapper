@@ -12,7 +12,10 @@
     using Microsoft.Bot.Builder.Integration.AspNet.Core;
     using Microsoft.Bot.Connector.Authentication;
     using Microsoft.Bot.Schema;
+    using Microsoft.Bot.Streaming.Payloads;
     using Microsoft.Extensions.Configuration;
+    using Microsoft.Teams.App.Mapper.Helper;
+    using Microsoft.Teams.App.Mapper.Models;
 
     [Route("api/[controller]")]
     [ApiController]
@@ -21,29 +24,29 @@
         private readonly IBotFrameworkHttpAdapter _adapter;
         private readonly string appId;
         private readonly ConcurrentDictionary<string, ConversationReference> _conversationReferences;
+        private readonly IProcessor processor;
 
-        public SyncController(IBotFrameworkHttpAdapter adapter, IConfiguration configuration, ConcurrentDictionary<string, ConversationReference> conversationReferences)
+        public SyncController(IBotFrameworkHttpAdapter adapter, IConfiguration configuration, ConcurrentDictionary<string, ConversationReference> conversationReferences, IProcessor proc)
         {
             _adapter = adapter;
             _conversationReferences = conversationReferences;
             appId = configuration["MicrosoftAppId"];
-
-            // If the channel is the Emulator, and authentication is not in use,
-            // the AppId will be null.  We generate a random AppId for this case only.
-            // This is not required for production, since the AppId will have a value.
-            if (string.IsNullOrEmpty(appId))
-            {
-                appId = Guid.NewGuid().ToString(); //if no AppId, use a random Guid
-            }
+            processor = proc;
         }
 
-        public async Task<IActionResult> Get()
+        [HttpPost]
+        public async Task<IActionResult> Post([FromBody] EventPayload payload)
         {
             List<string> statusUpdate = new List<string>();
             foreach (var conversationReference in _conversationReferences.Values)
             {
-                await ((BotAdapter)_adapter).ContinueConversationAsync(appId, conversationReference, BotCallback, default(CancellationToken));
-                statusUpdate.Add($"succeeded for {conversationReference.ChannelId}");
+                // await ((BotAdapter)_adapter).ContinueConversationAsync(appId, conversationReference, BotCallback, default);
+                await ((BotAdapter)_adapter).ContinueConversationAsync(appId, conversationReference, async (context, token) => {
+                    MicrosoftAppCredentials.TrustServiceUrl(context.Activity.ServiceUrl);
+                    payload = await processor.NotifySubscribersAsync(payload);
+                    await context.SendActivityAsync($"{payload.EventName} requested for {payload.ServiceUrl} has response : {payload.Response}");
+                }, default);
+                statusUpdate.Add($"succeeded for {conversationReference.User.Name}");
             }
 
             // Let the caller know proactive messages have been sent
@@ -53,12 +56,6 @@
                 ContentType = "text/html",
                 StatusCode = (int)HttpStatusCode.OK,
             };
-        }
-
-        private async Task BotCallback(ITurnContext turnContext, CancellationToken cancellationToken)
-        {
-            MicrosoftAppCredentials.TrustServiceUrl(turnContext.Activity.ServiceUrl);
-            await turnContext.SendActivityAsync("proactive hello");
         }
     }
 }
