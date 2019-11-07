@@ -1,5 +1,6 @@
 ﻿using AdaptiveCards;
 using Microsoft.Bot.Schema;
+using Microsoft.Teams.App.Mapper.Models;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -48,6 +49,19 @@ namespace Microsoft.Teams.App.Mapper.Cards
                     },
             };
             card.Body.Add(container);
+            card.Actions.Add(new AdaptiveSubmitAction()
+            {
+                Title = "Submit",
+                Data = new AdaptiveCardAction
+                {
+                    Msteams = new CardAction
+                    {
+                        Type = "messageBack",
+                        Text = "eventSubmit",
+                        Title = "Submit"
+                    }
+                },
+            });
             var adaptiveCardAttachment = new Attachment()
             {
                 ContentType = AdaptiveCard.ContentType,

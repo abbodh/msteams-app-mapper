@@ -2,6 +2,7 @@
 {
     using System;
     using System.Collections.Concurrent;
+    using System.Collections.Generic;
     using System.Net;
     using System.Threading;
     using System.Threading.Tasks;
@@ -38,15 +39,17 @@
 
         public async Task<IActionResult> Get()
         {
+            List<string> statusUpdate = new List<string>();
             foreach (var conversationReference in _conversationReferences.Values)
             {
                 await ((BotAdapter)_adapter).ContinueConversationAsync(appId, conversationReference, BotCallback, default(CancellationToken));
+                statusUpdate.Add($"succeeded for {conversationReference.ChannelId}");
             }
 
             // Let the caller know proactive messages have been sent
             return new ContentResult()
             {
-                Content = "<html><body><h1>Proactive messages have been sent.</h1></body></html>",
+                Content = string.Join(",", statusUpdate.ToArray()),
                 ContentType = "text/html",
                 StatusCode = (int)HttpStatusCode.OK,
             };

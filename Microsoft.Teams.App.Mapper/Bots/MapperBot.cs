@@ -27,6 +27,8 @@
         {
             await base.OnTurnAsync(turnContext, cancellationToken);
 
+            AddConversationReference(turnContext.Activity as Activity);
+
             // Save any state changes that might have occured during the turn.
             await ConversationState.SaveChangesAsync(turnContext, false, cancellationToken);
             await UserState.SaveChangesAsync(turnContext, false, cancellationToken);
@@ -45,7 +47,6 @@
 
         protected override Task OnConversationUpdateActivityAsync(ITurnContext<IConversationUpdateActivity> turnContext, CancellationToken cancellationToken)
         {
-            AddConversationReference(turnContext.Activity as Activity);
 
             return base.OnConversationUpdateActivityAsync(turnContext, cancellationToken);
         }

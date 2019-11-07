@@ -1,6 +1,7 @@
 ﻿using Microsoft.Bot.Builder;
 using Microsoft.Bot.Builder.Dialogs;
 using Microsoft.Bot.Schema;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Microsoft.Teams.App.Mapper.Cards;
@@ -16,6 +17,8 @@ namespace Microsoft.Teams.App.Mapper.Dialogs
     public class MainDialog : LogoutDialog
     {
         protected readonly ILogger Logger;
+
+        private static readonly MemoryStorage memoryStore = new MemoryStorage();
 
         public MainDialog(IConfiguration configuration, ILogger<MainDialog> logger)
             : base(nameof(MainDialog), configuration["ConnectionName"])
@@ -60,7 +63,7 @@ namespace Microsoft.Teams.App.Mapper.Dialogs
 
             // Reply to the activity we received with an activity.
             var reply = MessageFactory.Attachment(attachments);
-            var command = stepContext.Context.Activity.Text;
+            var command = !string.IsNullOrEmpty(stepContext.Context.Activity.Text) ? stepContext.Context.Activity.Text.Trim().ToLower() : string.Empty;
 
             switch (command)
             {
@@ -71,6 +74,15 @@ namespace Microsoft.Teams.App.Mapper.Dialogs
                 case "subscribe":
                     reply.Attachments.Add(Cards.Cards.GetSubscribeCard());
                     await stepContext.Context.SendActivityAsync(reply);
+                    break;
+                case "eventsubmit":
+                    // save info for later notifications
+                    var events = new Dictionary<string, object>();
+                    {
+                        events.Add(((JObject)stepContext.Context.Activity.Value).GetValue("eventname").ToString(), stepContext.Context.Activity);
+                    };
+                    await memoryStore.WriteAsync(events, cancellationToken);
+                    await stepContext.Context.SendActivityAsync($"{((JObject)stepContext.Context.Activity.Value).GetValue("eventname").ToString()} is regisetered");
                     break;
                 default:
                     await stepContext.Context.SendActivityAsync($"command not recognized. Type 'Help' to see supported commands.");
